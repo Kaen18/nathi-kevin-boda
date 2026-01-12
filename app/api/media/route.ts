@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     // Filtrar por tipo
     if (typeFilter && typeFilter !== 'all') {
       conditions.push(eq(media.type, typeFilter as 'photo' | 'video'));
+
     }
 
     // Filtrar por tags (usando IDs de tags)
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
         .select({ mediaId: mediaTags.mediaId })
         .from(mediaTags)
         .where(inArray(mediaTags.tagId, tagIds));
-      
+  
       conditions.push(inArray(media.id, mediaIdsWithTags));
     }
 
