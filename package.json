@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.966.0",
@@ -17,8 +21,10 @@
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
+    "react-dropzone": "^14.3.8",
     "tailwind-merge": "^3.4.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@types/node": "^20",
