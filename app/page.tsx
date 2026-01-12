@@ -153,7 +153,7 @@ export default function LoginPage() {
     const success = await login(code.trim());
     
     if (success) {
-      router.push('/galeria');
+      router.push('/gallery');
     } else {
       setShowError(true);
     }
