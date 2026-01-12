@@ -24,8 +24,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-
-  const { addMedia, tags, fetchTags } = useGalleryStore();
+  const { addMedia, fetchTags } = useGalleryStore();
   const { addUpload, updateUpload } = useUploadStore();
 
   // Configurar dropzone

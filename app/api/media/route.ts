@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@boda/lib/db';
 import { media, tags, mediaTags } from '@boda/db/schema';
-import { eq, desc, asc, inArray } from 'drizzle-orm';
+import { eq, desc, asc, inArray, and, SQL } from 'drizzle-orm';
 import type { Media, MediaResponse, ApiResponse } from '@boda/types';
 
 export async function GET(request: NextRequest) {
@@ -10,11 +10,32 @@ export async function GET(request: NextRequest) {
     const tagsFilter = searchParams.get('tags');
     const typeFilter = searchParams.get('type');
     const sortBy = searchParams.get('sortBy') || 'newest';
-    const cursor = searchParams.get('cursor');
     const limit = 20;
 
-    // Construir query base
-    let query = db
+    // Construir condiciones de filtro
+    const conditions: SQL[] = [];
+
+    // Filtrar por tipo
+    if (typeFilter && typeFilter !== 'all') {
+      conditions.push(eq(media.type, typeFilter as 'photo' | 'video'));
+
+    }
+
+    // Filtrar por tags (usando IDs de tags)
+    if (tagsFilter) {
+      const tagIds = tagsFilter.split(',');
+      const mediaIdsWithTags = db
+        .select({ mediaId: mediaTags.mediaId })
+        .from(mediaTags)
+        .where(inArray(mediaTags.tagId, tagIds));
+  
+      conditions.push(inArray(media.id, mediaIdsWithTags));
+    }
+
+    // Construir y ejecutar query
+    const orderBy = sortBy === 'oldest' ? asc(media.uploadedAt) : desc(media.uploadedAt);
+    
+    const results = await db
       .select({
         id: media.id,
         filename: media.filename,
@@ -28,39 +49,10 @@ export async function GET(request: NextRequest) {
         duration: media.duration,
         uploadedAt: media.uploadedAt,
       })
-      .from(media);
-
-    // Filtrar por tipo
-    if (typeFilter && typeFilter !== 'all') {
-      query = query.where(eq(media.type, typeFilter as 'photo' | 'video'));
-    }
-
-    // Filtrar por tags (usando IDs de tags)
-    if (tagsFilter) {
-      const tagIds = tagsFilter.split(',');
-      const mediaIdsWithTags = db
-        .select({ mediaId: mediaTags.mediaId })
-        .from(mediaTags)
-        .where(inArray(mediaTags.tagId, tagIds));
-      
-      query = query.where(inArray(media.id, mediaIdsWithTags));
-    }
-
-    // Ordenar
-    if (sortBy === 'oldest') {
-      query = query.orderBy(asc(media.uploadedAt));
-    } else {
-      query = query.orderBy(desc(media.uploadedAt));
-    }
-
-    // Paginación
-    query = query.limit(limit + 1);
-
-    if (cursor) {
-      // Implementar cursor-based pagination si es necesario
-    }
-
-    const results = await query;
+      .from(media)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(orderBy)
+      .limit(limit + 1);
 
     // Verificar si hay más resultados
     const hasMore = results.length > limit;
