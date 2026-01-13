@@ -1,7 +1,7 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 // Cliente de Cloudflare R2 (compatible con S3)
-const r2Client = new S3Client({
+export const r2Client = new S3Client({
   region: 'auto',
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
@@ -10,8 +10,10 @@ const r2Client = new S3Client({
   },
 });
 
-const BUCKET_NAME = process.env.R2_BUCKET_NAME!;
+export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME!;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL!; // URL pública del bucket (dominio personalizado o r2.dev)
+
+export { GetObjectCommand };
 
 export interface UploadResult {
   url: string;
@@ -37,7 +39,7 @@ export async function uploadToR2(
   const key = `uploads/${year}/${month}/${filename}`;
 
   const command = new PutObjectCommand({
-    Bucket: BUCKET_NAME,
+    Bucket: R2_BUCKET_NAME,
     Key: key,
     Body: buffer,
     ContentType: contentType,
