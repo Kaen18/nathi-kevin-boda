@@ -52,10 +52,16 @@ export default function Lightbox({
     };
   }, [handleKeyDown]);
 
-  // Descargar archivo
+  // Descargar archivo usando el endpoint de la API
   const handleDownload = async () => {
     try {
-      const response = await fetch(currentMedia.url);
+      // Usar el endpoint de download de la API
+      const response = await fetch(`/api/download?id=${currentMedia.id}`);
+      
+      if (!response.ok) {
+        throw new Error('Error al descargar');
+      }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');

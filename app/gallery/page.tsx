@@ -7,6 +7,7 @@ import { EVENT_CONFIG } from '@boda/types';
 import UploadModal from '@boda/components/upload/UploadModal';
 import GalleryGrid from '@boda/components/gallery/GalleryGrid';
 import FilterTags from '@boda/components/gallery/FilterTags';
+import FloralCorner from '@boda/components/ui/FloralCorner';
 
 export default function GaleriaPage() {
   const router = useRouter();
@@ -40,7 +41,13 @@ export default function GaleriaPage() {
   }
 
   return (
-    <main className="min-h-screen bg-cream">
+    <main className="min-h-screen bg-cream relative overflow-hidden">
+      {/* Flores decorativas de fondo */}
+      <FloralCorner className="fixed top-0 left-0 w-32 h-32 md:w-48 md:h-48 opacity-40 pointer-events-none z-0" />
+      <FloralCorner className="fixed top-0 right-0 w-32 h-32 md:w-48 md:h-48 opacity-40 pointer-events-none z-0 -scale-x-100" />
+      <FloralCorner className="fixed bottom-0 left-0 w-36 h-36 md:w-56 md:h-56 opacity-40 pointer-events-none z-0 -scale-y-100" />
+      <FloralCorner className="fixed bottom-0 right-0 w-36 h-36 md:w-56 md:h-56 opacity-40 pointer-events-none z-0 scale-x-[-1] scale-y-[-1]" />
+
       {/* Header */}
       <header className="sticky top-0 z-40 bg-cream/80 backdrop-blur-md border-b border-floral-light/30">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -49,7 +56,7 @@ export default function GaleriaPage() {
             <div className="flex items-center gap-3">
               <h1 className="title-script text-3xl md:text-4xl">
                 {EVENT_CONFIG.names.partner1}
-                <span className="text-floral mx-1">&</span>
+                <span className="text-floral mx-1"> & </span>
                 {EVENT_CONFIG.names.partner2}
               </h1>
             </div>
@@ -108,7 +115,7 @@ export default function GaleriaPage() {
         )}
       </section>
 
-      {/* Botón flotante para subir (mobile) */}
+      {/* Botón flotante para subir (mobile) 
       <button
         onClick={() => setShowModal(true)}
         className="fixed bottom-6 right-6 sm:hidden w-14 h-14 bg-navy text-cream rounded-full shadow-elegant flex items-center justify-center hover:bg-navy-light transition-all active:scale-95"
@@ -117,7 +124,7 @@ export default function GaleriaPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       </button>
-
+      */}
       {/* Modal de subida */}
       <UploadModal 
         isOpen={showModal} 

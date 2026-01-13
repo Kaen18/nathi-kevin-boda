@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useGalleryStore, useUploadStore } from '@boda/lib/store';
 import { EVENT_CONFIG } from '@boda/types';
@@ -21,11 +21,33 @@ interface FilePreview {
 export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState('');
+  const [customTags, setCustomTags] = useState<string[]>([]);
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const { addMedia, fetchTags } = useGalleryStore();
+  const { tags: existingTags, addMedia, fetchTags, addTag } = useGalleryStore();
   const { addUpload, updateUpload } = useUploadStore();
+
+  // Cargar tags existentes al abrir el modal
+  useEffect(() => {
+    if (isOpen) {
+      fetchTags();
+    }
+  }, [isOpen, fetchTags]);
+
+  // Combinar etiquetas predefinidas con las de la base de datos
+  const allAvailableTags = [
+    ...EVENT_CONFIG.defaultTags,
+    ...existingTags
+      .filter((t) => !EVENT_CONFIG.defaultTags.includes(t.name))
+      .map((t) => t.name),
+    ...customTags.filter(
+      (t) => !EVENT_CONFIG.defaultTags.includes(t) && 
+             !existingTags.some((et) => et.name === t)
+    ),
+  ];
 
   // Configurar dropzone
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -76,6 +98,67 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
+  };
+
+  // Crear etiqueta personalizada
+  const handleCreateCustomTag = async () => {
+    const tagName = customTagInput.trim();
+    
+    if (!tagName) return;
+    
+    // Verificar que no exista ya
+    if (allAvailableTags.some((t) => t.toLowerCase() === tagName.toLowerCase())) {
+      setError('Esta etiqueta ya existe');
+      return;
+    }
+
+    if (tagName.length > 50) {
+      setError('La etiqueta es muy larga (máx. 50 caracteres)');
+      return;
+    }
+
+    setIsCreatingTag(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tagName }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Añadir al store global si no es existente
+        if (!data.existing) {
+          addTag(data.data);
+        }
+        
+        // Añadir a las etiquetas personalizadas locales
+        setCustomTags((prev) => [...prev, tagName]);
+        
+        // Seleccionar automáticamente la nueva etiqueta
+        setSelectedTags((prev) => [...prev, tagName]);
+        
+        // Limpiar input
+        setCustomTagInput('');
+      } else {
+        setError(data.error || 'Error al crear la etiqueta');
+      }
+    } catch {
+      setError('Error al crear la etiqueta');
+    } finally {
+      setIsCreatingTag(false);
+    }
+  };
+
+  // Manejar Enter en input de etiqueta
+  const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCreateCustomTag();
+    }
   };
 
   // Subir archivos
@@ -148,6 +231,8 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     files.forEach((f) => URL.revokeObjectURL(f.preview));
     setFiles([]);
     setSelectedTags([]);
+    setCustomTags([]);
+    setCustomTagInput('');
     setError(null);
     onClose();
   };
@@ -271,8 +356,10 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
               <p className="text-sm text-charcoal/60 mb-3">
                 Etiquetas <span className="text-red-500">*</span>
               </p>
-              <div className="flex flex-wrap gap-2">
-                {EVENT_CONFIG.defaultTags.map((tag) => (
+              
+              {/* Etiquetas disponibles */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {allAvailableTags.map((tag) => (
                   <button
                     key={tag}
                     onClick={() => toggleTag(tag)}
@@ -285,6 +372,43 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
                   </button>
                 ))}
               </div>
+
+              {/* Input para crear etiqueta personalizada */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customTagInput}
+                  onChange={(e) => {
+                    setCustomTagInput(e.target.value);
+                    setError(null);
+                  }}
+                  onKeyDown={handleTagInputKeyDown}
+                  placeholder="Crear nueva etiqueta..."
+                  maxLength={50}
+                  disabled={isCreatingTag}
+                  className="flex-1 px-3 py-2 text-sm border border-floral-light rounded-xl focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy transition-all disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateCustomTag}
+                  disabled={!customTagInput.trim() || isCreatingTag}
+                  className="px-4 py-2 text-sm bg-floral text-white rounded-xl hover:bg-floral-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  {isCreatingTag ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Añadir
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-charcoal/40 mt-2">
+                Puedes crear tus propias etiquetas para organizar mejor los recuerdos
+              </p>
             </div>
           )}
 
