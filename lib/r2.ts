@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Cliente de Cloudflare R2 (compatible con S3)
 export const r2Client = new S3Client({
@@ -58,4 +59,40 @@ export async function uploadToR2(
  */
 export function getPublicUrl(key: string): string {
   return `${PUBLIC_URL}/${key}`;
+}
+
+export interface PresignedUploadResult {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+}
+
+/**
+ * Genera una URL pre-firmada para subir directamente a R2
+ * @param filename - Nombre del archivo (ya debe ser único)
+ * @param contentType - Tipo MIME del archivo
+ * @param expiresIn - Tiempo de expiración en segundos (default: 10 minutos)
+ * @returns URL pre-firmada para upload y URL pública final
+ */
+export async function getPresignedUploadUrl(
+  filename: string,
+  contentType: string,
+  expiresIn: number = 600
+): Promise<PresignedUploadResult> {
+  // Organizar archivos por año/mes
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const key = `uploads/${year}/${month}/${filename}`;
+
+  const command = new PutObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn });
+  const publicUrl = `${PUBLIC_URL}/${key}`;
+
+  return { uploadUrl, publicUrl, key };
 }
