@@ -161,7 +161,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     }
   };
 
-  // Subir archivos
+  // Subir archivos usando URLs pre-firmadas (directo a R2)
   const handleUpload = async () => {
     if (files.length === 0) return;
     if (selectedTags.length === 0) {
@@ -177,12 +177,9 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     let uploadedCount = 0;
 
     for (const fileItem of files) {
+      const uploadId = generateId();
+      
       try {
-        const formData = new FormData();
-        formData.append('file', fileItem.file);
-        formData.append('tags', JSON.stringify(selectedTags));
-
-        const uploadId = generateId();
         addUpload({
           fileId: uploadId,
           filename: fileItem.file.name,
@@ -190,24 +187,75 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
           status: 'uploading',
         });
 
-        const response = await fetch('/api/upload', {
+        // Paso 1: Obtener URL pre-firmada
+        const presignResponse = await fetch('/api/upload/presign', {
           method: 'POST',
-          body: formData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: fileItem.file.name,
+            contentType: fileItem.file.type,
+            size: fileItem.file.size,
+          }),
         });
 
-        const data = await response.json();
+        const presignData = await presignResponse.json();
 
-        if (data.success) {
+        if (!presignData.success) {
+          updateUpload(uploadId, { status: 'error', error: presignData.error });
+          setError(`Error subiendo ${fileItem.file.name}: ${presignData.error}`);
+          continue;
+        }
+
+        const { fileId, uploadUrl, publicUrl, key } = presignData.data;
+
+        updateUpload(uploadId, { progress: 20 });
+
+        // Paso 2: Subir directamente a R2
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': fileItem.file.type,
+          },
+          body: fileItem.file,
+        });
+
+        if (!uploadResponse.ok) {
+          updateUpload(uploadId, { status: 'error', error: 'Error subiendo a R2' });
+          setError(`Error subiendo ${fileItem.file.name} al almacenamiento`);
+          continue;
+        }
+
+        updateUpload(uploadId, { progress: 80 });
+
+        // Paso 3: Confirmar subida en la base de datos
+        const confirmResponse = await fetch('/api/upload/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileId,
+            key,
+            publicUrl,
+            originalName: fileItem.file.name,
+            contentType: fileItem.file.type,
+            size: fileItem.file.size,
+            selectedTags,
+          }),
+        });
+
+        const confirmData = await confirmResponse.json();
+
+        if (confirmData.success) {
           updateUpload(uploadId, { progress: 100, status: 'complete' });
-          addMedia(data.data);
+          addMedia(confirmData.data);
           uploadedCount++;
           setUploadProgress(Math.round((uploadedCount / totalFiles) * 100));
         } else {
-          updateUpload(uploadId, { status: 'error', error: data.error });
-          setError(`Error subiendo ${fileItem.file.name}: ${data.error}`);
+          updateUpload(uploadId, { status: 'error', error: confirmData.error });
+          setError(`Error confirmando ${fileItem.file.name}: ${confirmData.error}`);
         }
       } catch (err) {
         console.error('Error uploading:', err);
+        updateUpload(uploadId, { status: 'error', error: 'Error de conexión' });
         setError(`Error subiendo ${fileItem.file.name}`);
       }
     }
