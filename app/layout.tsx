@@ -6,6 +6,7 @@ import {
   Lato, 
   Montserrat 
 } from 'next/font/google';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
 
 // Fuente script para "Nathi & Kevin"
@@ -77,6 +78,7 @@ export default function RootLayout({
         `}
       >
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
